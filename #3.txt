@@ -1,0 +1,49 @@
+Started by user Braulio Arione da Silva Albano
+Running as SYSTEM
+Building in workspace /var/lib/jenkins/workspace/Job
+No JDK named ‘jdk’ found
+The recommended git tool is: NONE
+No credentials specified
+No JDK named ‘jdk’ found
+ > git rev-parse --resolve-git-dir /var/lib/jenkins/workspace/Job/.git # timeout=10
+Fetching changes from the remote Git repository
+ > git config remote.origin.url https://github.com/jaiswaladi246/FullStack-Blogging-App.git # timeout=10
+Fetching upstream changes from https://github.com/jaiswaladi246/FullStack-Blogging-App.git
+ > git --version # timeout=10
+ > git --version # 'git version 2.43.0'
+ > git fetch --tags --force --progress -- https://github.com/jaiswaladi246/FullStack-Blogging-App.git +refs/heads/*:refs/remotes/origin/* # timeout=10
+ > git rev-parse origin/main^{commit} # timeout=10
+No JDK named ‘jdk’ found
+Checking out Revision 838df39145a6ea477682e8fea7102707e7a19d97 (origin/main)
+ > git config core.sparsecheckout # timeout=10
+ > git checkout -f 838df39145a6ea477682e8fea7102707e7a19d97 # timeout=10
+Commit message: "Create test.txt"
+ > git rev-list --no-walk 838df39145a6ea477682e8fea7102707e7a19d97 # timeout=10
+No JDK named ‘jdk’ found
+[Job] $ mvn package
+FATAL: command execution failed
+java.io.IOException: error=2, No such file or directory
+	at java.base/java.lang.ProcessImpl.forkAndExec(Native Method)
+	at java.base/java.lang.ProcessImpl.<init>(ProcessImpl.java:295)
+	at java.base/java.lang.ProcessImpl.start(ProcessImpl.java:225)
+	at java.base/java.lang.ProcessBuilder.start(ProcessBuilder.java:1126)
+Caused: java.io.IOException: Cannot run program "mvn" (in directory "/var/lib/jenkins/workspace/Job"): error=2, No such file or directory
+	at java.base/java.lang.ProcessBuilder.start(ProcessBuilder.java:1170)
+	at java.base/java.lang.ProcessBuilder.start(ProcessBuilder.java:1089)
+	at hudson.Proc$LocalProc.<init>(Proc.java:252)
+	at hudson.Proc$LocalProc.<init>(Proc.java:221)
+	at hudson.Launcher$LocalLauncher.launch(Launcher.java:995)
+	at hudson.Launcher$ProcStarter.start(Launcher.java:507)
+	at hudson.Launcher$ProcStarter.join(Launcher.java:518)
+	at hudson.tasks.Maven.perform(Maven.java:368)
+	at hudson.tasks.BuildStepMonitor$1.perform(BuildStepMonitor.java:20)
+	at hudson.model.AbstractBuild$AbstractBuildExecution.perform(AbstractBuild.java:818)
+	at hudson.model.Build$BuildExecution.build(Build.java:199)
+	at hudson.model.Build$BuildExecution.doRun(Build.java:164)
+	at hudson.model.AbstractBuild$AbstractBuildExecution.run(AbstractBuild.java:527)
+	at hudson.model.Run.execute(Run.java:1833)
+	at hudson.model.FreeStyleBuild.run(FreeStyleBuild.java:44)
+	at hudson.model.ResourceController.execute(ResourceController.java:101)
+	at hudson.model.Executor.run(Executor.java:446)
+Build step 'Invoke top-level Maven targets' marked build as failure
+Finished: FAILURE
