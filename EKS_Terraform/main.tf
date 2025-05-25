@@ -1,175 +1,80 @@
-provider "aws" {
-  region = "ap-south-1"
+provider "azurerm" {
+  features {}
 }
 
-resource "aws_vpc" "devopsshack_vpc" {
-  cidr_block = "10.0.0.0/16"
-
-  tags = {
-    Name = "devopsshack-vpc"
-  }
+resource "azurerm_resource_group" "devopsshack_rg" {
+  name     = "devopsshack-rg"
+  location = "East US"
 }
 
-resource "aws_subnet" "devopsshack_subnet" {
-  count = 2
-  vpc_id                  = aws_vpc.devopsshack_vpc.id
-  cidr_block              = cidrsubnet(aws_vpc.devopsshack_vpc.cidr_block, 8, count.index)
-  availability_zone       = element(["ap-south-1a", "ap-south-1b"], count.index)
-  map_public_ip_on_launch = true
-
-  tags = {
-    Name = "devopsshack-subnet-${count.index}"
-  }
+resource "azurerm_virtual_network" "devopsshack_vnet" {
+  name                = "devopsshack-vnet"
+  address_space       = ["10.0.0.0/16"]
+  location            = azurerm_resource_group.devopsshack_rg.location
+  resource_group_name = azurerm_resource_group.devopsshack_rg.name
 }
 
-resource "aws_internet_gateway" "devopsshack_igw" {
-  vpc_id = aws_vpc.devopsshack_vpc.id
-
-  tags = {
-    Name = "devopsshack-igw"
-  }
+resource "azurerm_subnet" "devopsshack_subnet" {
+  count               = 2
+  name                = "subnet-${count.index}"
+  resource_group_name = azurerm_resource_group.devopsshack_rg.name
+  virtual_network_name = azurerm_virtual_network.devopsshack_vnet.name
+  address_prefixes    = ["10.0.${count.index}.0/24"]
 }
 
-resource "aws_route_table" "devopsshack_route_table" {
-  vpc_id = aws_vpc.devopsshack_vpc.id
+resource "azurerm_network_security_group" "devopsshack_nsg" {
+  name                = "devopsshack-nsg"
+  location            = azurerm_resource_group.devopsshack_rg.location
+  resource_group_name = azurerm_resource_group.devopsshack_rg.name
 
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.devopsshack_igw.id
+  security_rule {
+    name                       = "AllowAllInbound"
+    priority                   = 100
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "*"
+    source_port_range          = "*"
+    destination_port_range     = "*"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
   }
 
-  tags = {
-    Name = "devopsshack-route-table"
-  }
-}
-
-resource "aws_route_table_association" "a" {
-  count          = 2
-  subnet_id      = aws_subnet.devopsshack_subnet[count.index].id
-  route_table_id = aws_route_table.devopsshack_route_table.id
-}
-
-resource "aws_security_group" "devopsshack_cluster_sg" {
-  vpc_id = aws_vpc.devopsshack_vpc.id
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = {
-    Name = "devopsshack-cluster-sg"
+  security_rule {
+    name                       = "AllowAllOutbound"
+    priority                   = 110
+    direction                  = "Outbound"
+    access                     = "Allow"
+    protocol                   = "*"
+    source_port_range          = "*"
+    destination_port_range     = "*"
+    source_address_prefix      = "*"
+    destination_address_prefix = "*"
   }
 }
 
-resource "aws_security_group" "devopsshack_node_sg" {
-  vpc_id = aws_vpc.devopsshack_vpc.id
+resource "azurerm_kubernetes_cluster" "devopsshack_aks" {
+  name                = "devopsshack-aks"
+  location            = azurerm_resource_group.devopsshack_rg.location
+  resource_group_name = azurerm_resource_group.devopsshack_rg.name
+  dns_prefix          = "devopsshack"
 
-  ingress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+  default_node_pool {
+    name       = "default"
+    node_count = 3
+    vm_size    = "Standard_DS2_v2"
+    vnet_subnet_id = azurerm_subnet.devopsshack_subnet[0].id
   }
 
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+  identity {
+    type = "SystemAssigned"
+  }
+
+  network_profile {
+    network_plugin = "azure"
+    load_balancer_sku = "standard"
   }
 
   tags = {
-    Name = "devopsshack-node-sg"
+    Environment = "DevOpsHack"
   }
-}
-
-resource "aws_eks_cluster" "devopsshack" {
-  name     = "devopsshack-cluster"
-  role_arn = aws_iam_role.devopsshack_cluster_role.arn
-
-  vpc_config {
-    subnet_ids         = aws_subnet.devopsshack_subnet[*].id
-    security_group_ids = [aws_security_group.devopsshack_cluster_sg.id]
-  }
-}
-
-resource "aws_eks_node_group" "devopsshack" {
-  cluster_name    = aws_eks_cluster.devopsshack.name
-  node_group_name = "devopsshack-node-group"
-  node_role_arn   = aws_iam_role.devopsshack_node_group_role.arn
-  subnet_ids      = aws_subnet.devopsshack_subnet[*].id
-
-  scaling_config {
-    desired_size = 3
-    max_size     = 3
-    min_size     = 3
-  }
-
-  instance_types = ["t2.large"]
-
-  remote_access {
-    ec2_ssh_key = var.ssh_key_name
-    source_security_group_ids = [aws_security_group.devopsshack_node_sg.id]
-  }
-}
-
-resource "aws_iam_role" "devopsshack_cluster_role" {
-  name = "devopsshack-cluster-role"
-
-  assume_role_policy = <<EOF
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Principal": {
-        "Service": "eks.amazonaws.com"
-      },
-      "Action": "sts:AssumeRole"
-    }
-  ]
-}
-EOF
-}
-
-resource "aws_iam_role_policy_attachment" "devopsshack_cluster_role_policy" {
-  role       = aws_iam_role.devopsshack_cluster_role.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSClusterPolicy"
-}
-
-resource "aws_iam_role" "devopsshack_node_group_role" {
-  name = "devopsshack-node-group-role"
-
-  assume_role_policy = <<EOF
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Principal": {
-        "Service": "ec2.amazonaws.com"
-      },
-      "Action": "sts:AssumeRole"
-    }
-  ]
-}
-EOF
-}
-
-resource "aws_iam_role_policy_attachment" "devopsshack_node_group_role_policy" {
-  role       = aws_iam_role.devopsshack_node_group_role.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
-}
-
-resource "aws_iam_role_policy_attachment" "devopsshack_node_group_cni_policy" {
-  role       = aws_iam_role.devopsshack_node_group_role.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
-}
-
-resource "aws_iam_role_policy_attachment" "devopsshack_node_group_registry_policy" {
-  role       = aws_iam_role.devopsshack_node_group_role.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
 }
